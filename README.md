@@ -4,7 +4,7 @@ Various linear regression methods implemented from scratch.
 
 ### About
 
-_Intelligent Systems_ course assignment _@_ St. Petersburg State University.
+_Intelligent Systems_ course assignment @ St. Petersburg State University.
 
 Construct the multidimensional linear regression model using dataset of airline delays by the [US Bureau of 
 Transportation Statistics](https://www.transtats.bts.gov/OT_Delay/OT_DelayCause1.asp).

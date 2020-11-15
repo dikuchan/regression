@@ -1,0 +1,10 @@
+[package]
+name = "regression"
+version = "0.1.0"
+authors = ["dikuchan <dikuchan@yahoo.com>"]
+edition = "2018"
+
+[dependencies]
+csv = "1.1"
+rand = "0.7"
+itertools = "0.9.0"

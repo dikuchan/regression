@@ -17,7 +17,7 @@ macro_rules! builder_field {
 pub trait Regressor {
     fn fit(self, X: Matrix, y: Vector) -> Self;
 
-    fn weights(&self) -> (f64, &Vector);
+    fn weights(&self) -> &Vector;
 
     /// Predict using the linear model.
     ///
@@ -30,8 +30,7 @@ pub trait Regressor {
     fn predict(&self, X: &Matrix) -> Vector {
         let mut predictions = Vector::new();
         for i in 0..X.rows() {
-            let (intercept, weights) = &self.weights();
-            let prediction = intercept + dot(weights, &X[i]);
+            let prediction = self.weights()[0] + dot(&self.weights()[1..], &X[i]);
             predictions.push(prediction);
         }
 
@@ -43,22 +42,12 @@ pub trait Regressor {
         let predictions = &self.predict(X);
         let mean = y.iter().sum::<f64>() / y.len() as f64;
         let ssres = predictions.iter().zip(y.iter())
-            .map(|(yh, y)| (y - yh) * (y - yh))
+            .map(|(yh, y)| f64::powi(y - yh, 2))
             .sum::<f64>();
         let sstot = y.iter()
-            .map(|y| (y - mean) * (y - mean))
+            .map(|y| f64::powi(y - mean, 2))
             .sum::<f64>();
 
         1f64 - (ssres / sstot)
     }
-}
-
-/// Calculate Mean Squared Error using trained linear regressor.
-pub fn mse<T: Regressor>(R: &T, X: &Matrix, y: &Vector) -> f64 {
-    let predictions = &R.predict(X);
-    let error = predictions.iter().zip(y.iter())
-        .map(|(y, yh)| (y - yh) * (y - yh))
-        .sum::<f64>();
-
-    error / predictions.len() as f64
 }

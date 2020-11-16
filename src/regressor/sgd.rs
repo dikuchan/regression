@@ -13,7 +13,7 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct SGD {
     /// Size of mini-batches used in the gradient computation.
-    batch_size: usize,
+    batch: usize,
     /// The maximum number of passes over the training data.
     iterations: usize,
     /// The stopping criterion.
@@ -29,12 +29,13 @@ pub struct SGD {
     eta: f64,
     /// Whether to use early stopping to terminate training when validation score is not improving.
     stopping: bool,
+    // The proportion of training data to set aside as validation set for early stopping.
+    fraction: f64,
     weights: Vector,
-    intercept: f64,
 }
 
 impl SGD {
-    builder_field!(batch_size, usize);
+    builder_field!(batch, usize);
     builder_field!(iterations, usize);
     builder_field!(tolerance, f64);
     builder_field!(shuffle, bool);
@@ -42,12 +43,13 @@ impl SGD {
     builder_field!(stumble, usize);
     builder_field!(eta, f64);
     builder_field!(stopping, bool);
+    builder_field!(fraction, f64);
 }
 
 impl Default for SGD {
     fn default() -> Self {
         Self {
-            batch_size: 8,
+            batch: 8,
             iterations: 1000,
             tolerance: 1e-3,
             shuffle: true,
@@ -55,8 +57,8 @@ impl Default for SGD {
             stumble: 5,
             eta: 1e-2,
             stopping: false,
+            fraction: 0.1,
             weights: Vec::new(),
-            intercept: 0f64,
         }
     }
 }
@@ -79,19 +81,19 @@ impl Regressor for SGD {
     ///     .fit(X, y);
     ///
     /// let y = Vector::read("./test_y.csv");
-    /// let prediction = gcd.predict(y);
+    /// let prediction = gcd.predict(&y);
     /// ```
     fn fit(mut self, mut X: Matrix, mut y: Vector) -> Self {
         // Squared loss is convex function, so start with zeroes.
-        self.weights = vec![0f64; X.cols()] as Vector;
-        self.intercept = 0f64;
+        self.weights = vec![0f64; X.cols() + 1] as Vector;
 
         // If batches are too large, shrink them.
-        if self.batch_size >= X.rows() {
-            self.batch_size = if self.batch_size > 4 { X.rows() / 4 } else { 1 };
-            if self.verbose { println!("Changed batch size to {}", self.batch_size); }
+        if self.batch >= X.rows() {
+            self.batch = if X.rows() > 4 { X.rows() / 4 } else { 1 };
+            if self.verbose { println!("Changed batch size to {}", self.batch); }
         }
 
+        let fraction = self.fraction * (X.rows() as f64);
         let mut best_error = f64::MAX;
         let mut stumble = 0usize;
         let mut best_weights = Vector::new();
@@ -102,39 +104,37 @@ impl Regressor for SGD {
             }
             // It is essential to reshuffle data.
             // Randomly permute all rows.
-            if self.shuffle {
-                shuffle(&mut X, &mut y);
-            }
-            // Inverse scaling for learning rate.
-            // Default method in `sklearn`.
-            let scaling = 1f64 / f64::powf(e as f64, 0.25);
-            let mut new_weights = self.weights.clone();
+            if self.shuffle { shuffle(&mut X, &mut y); }
             // Linear regression function is `w0 + w1 x1 + ... + wp xp = y`.
             // Precompute part of gradient that does not depend on `x`.
-            let mut G = Vector::with_capacity(self.batch_size);
-            for i in 0..self.batch_size {
-                G.push(self.intercept + dot(&self.weights, &X[i]) - y[i]);
-            };
-            // For each weight `wi` find gradient using batch of observations.
+            let delta: Vector = (0..self.batch)
+                .map(|i| self.weights[0] + dot(&self.weights[1..], &X[i]) - y[i])
+                .collect();
+            // For each weight `wi` find derivative using batch of observations.
             for j in 0..self.weights.len() {
-                let mut dw = 0f64;
-                for i in 0..self.batch_size {
-                    dw += X[[i, j]] * G[i];
+                let mut derivative = 0f64;
+                for i in 0..self.batch {
+                    derivative += if j == 0 { delta[i] } else { X[[i, j - 1]] * delta[i] }
                 }
                 // Adjust weights.
-                new_weights[j] -= scaling * self.eta * dw / self.batch_size as f64;
+                derivative /= self.batch as f64;
+                // Inverse scaling of learning rate.
+                // Default method in `sklearn`.
+                let eta = self.eta / f64::powf(e as f64, 0.25);
+                self.weights[j] -= eta * derivative;
             }
-            // Separately process intercept, or `w0`.
-            let di: f64 = G.iter().sum();
-            self.intercept -= scaling * self.eta * di / self.batch_size as f64;
-            self.weights = new_weights;
 
+            // If result is not improving, stop procedure early.
             if self.stopping {
-                // If result is not improving, stop procedure early.
-                // IMHO, MSE is more complex procedure than SGD.
-                // TODO: Validation fraction.
-                let error = mse(&self, &X, &y);
+                // Compute MSE on part of dataset.
+                let mut error = 0f64;
+                for i in 0..fraction as usize {
+                    let prediction = self.weights[0] + dot(&self.weights[1..], &X[i]);
+                    error += f64::powi(prediction - y[i], 2);
+                }
+                error /= fraction;
                 if error > best_error - self.tolerance { stumble += 1; } else { stumble = 0; }
+                // Remember best weights.
                 if error < best_error { best_weights = self.weights.clone(); }
                 best_error = if error < best_error { error } else { best_error };
 
@@ -153,7 +153,7 @@ impl Regressor for SGD {
     /// Returns parameters of the trained model.
     ///
     /// If regressor was not yet trained via `fit` method, returns garbage.
-    fn weights(&self) -> (f64, &Vector) {
-        (self.intercept, &self.weights)
+    fn weights(&self) -> &Vector {
+        &self.weights
     }
 }

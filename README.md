@@ -14,7 +14,7 @@ Transportation Statistics](https://www.transtats.bts.gov/OT_Delay/OT_DelayCause1
 Without `L1`, `L2`-regularisation:
 
 - [x] Mini-batch stochastic gradient descent
-- [ ] AdaGrad
+- [x] AdaGrad
 - [ ] RMSProp
 - [ ] Adam
 

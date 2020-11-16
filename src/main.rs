@@ -8,10 +8,12 @@ use crate::{
     },
 };
 use std::error::Error;
-use crate::regressor::lib::mse;
 
 pub mod regressor;
 pub mod math;
+
+#[cfg(test)]
+pub mod test;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let X = Matrix::read("./data/train/X.csv")?;
@@ -24,9 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let X = Matrix::read("./data/test/X.csv")?;
     let y = Vector::read("./data/test/y.csv")?;
 
-    let error = mse(&sgd, &X, &y);
-
-    println!("Error: {}", error);
+    println!("R2 Score: {}", sgd.score(&X, &y));
 
     Ok(())
 }

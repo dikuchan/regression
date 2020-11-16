@@ -7,15 +7,6 @@ use std::{
     default::Default
 };
 
-macro_rules! builder_field {
-    ($field:ident, $field_type:ty) => {
-        pub fn $field(mut self, $field: $field_type) -> Self {
-            self.$field = $field;
-            self
-        }
-    };
-}
-
 /// Main parameters are the same as parameters of the `SGDRegressor` in `scikit-learn` library.
 ///
 /// Note: Regularisation is not implemented for this regressor.
@@ -51,25 +42,18 @@ impl SGD {
     builder_field!(stumble, usize);
     builder_field!(eta, f64);
     builder_field!(stopping, bool);
-
-    /// Returns parameters of the trained model.
-    ///
-    /// If regressor was not yet trained via `fit` method, returns garbage.
-    pub fn parameters(&self) -> (f64, &Vector) {
-        (self.intercept, &self.weights)
-    }
 }
 
 impl Default for SGD {
     fn default() -> Self {
         Self {
-            batch_size: 4,
+            batch_size: 8,
             iterations: 1000,
             tolerance: 1e-3,
             shuffle: true,
             verbose: false,
             stumble: 5,
-            eta: 1e-3,
+            eta: 1e-2,
             stopping: false,
             weights: Vec::new(),
             intercept: 0f64,
@@ -113,34 +97,40 @@ impl Regressor for SGD {
         let mut best_weights = Vector::new();
 
         for e in 1..self.iterations {
+            if self.verbose {
+                if e % 100 == 0 { println!("Processed epoch #{}", e); }
+            }
             // It is essential to reshuffle data.
             // Randomly permute all rows.
             if self.shuffle {
                 shuffle(&mut X, &mut y);
             }
+            // Inverse scaling for learning rate.
+            // Default method in `sklearn`.
+            let scaling = 1f64 / f64::powf(e as f64, 0.25);
             let mut new_weights = self.weights.clone();
             // Linear regression function is `w0 + w1 x1 + ... + wp xp = y`.
+            // Precompute part of gradient that does not depend on `x`.
+            let mut G = Vector::with_capacity(self.batch_size);
+            for i in 0..self.batch_size {
+                G.push(self.intercept + dot(&self.weights, &X[i]) - y[i]);
+            };
             // For each weight `wi` find gradient using batch of observations.
             for j in 0..self.weights.len() {
                 let mut dw = 0f64;
                 for i in 0..self.batch_size {
-                    let G = self.intercept + dot(&self.weights, &X[i]) - y[i];
-                    dw += X[[i, j]] * G;
+                    dw += X[[i, j]] * G[i];
                 }
                 // Adjust weights.
-                new_weights[j] -= self.eta / self.batch_size as f64 * dw;
+                new_weights[j] -= scaling * self.eta / self.batch_size as f64 * dw;
             }
             // Separately process intercept, or `w0`.
             let mut di = 0f64;
             for i in 0..self.batch_size {
                 di += self.intercept + dot(&self.weights, &X[i]) - y[i];
             }
-            self.intercept -= self.eta / self.batch_size as f64 * di;
+            self.intercept -= scaling * self.eta / self.batch_size as f64 * di;
             self.weights = new_weights;
-
-            // Inverse scaling for learning rate.
-            // Default method in `sklearn`.
-            self.eta /= f64::powf(e as f64, 0.25);
 
             if self.stopping {
                 // If result is not improving, stop procedure early.
@@ -163,21 +153,10 @@ impl Regressor for SGD {
         self
     }
 
-    /// Predict using the linear model.
+    /// Returns parameters of the trained model.
     ///
-    /// # Arguments
-    ///
-    /// * `X`: Matrix with the same number of features as of fitted matrix.
-    ///
-    /// # Return
-    /// Vector of predicted values of target variable.
-    fn predict(&self, X: &Matrix) -> Vector {
-        let mut predictions = Vector::new();
-        for i in 0..X.rows() {
-            let prediction = self.intercept + dot(&self.weights, &X[i]);
-            predictions.push(prediction);
-        }
-
-        predictions
+    /// If regressor was not yet trained via `fit` method, returns garbage.
+    fn weights(&self) -> (f64, &Vector) {
+        (self.intercept, &self.weights)
     }
 }

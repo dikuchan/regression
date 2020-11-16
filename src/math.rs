@@ -8,14 +8,14 @@ use std::{
 };
 
 use rand::{
-    thread_rng,
+    Rng,
     seq::SliceRandom,
 };
 
 /// Permute in-place all matrix rows with respect to target vector.
 pub fn shuffle(X: &mut Matrix, y: &mut Vector) {
-    let mut permutation: Vec<usize> = (0..X.rows()).collect();
-    permutation.shuffle(&mut thread_rng());
+    let mut permutation: Vec<usize> = (0..X.rows).collect();
+    permutation.shuffle(&mut rand::thread_rng());
 
     for indices in permutation.chunks(2) {
         let (i, j) = match indices {
@@ -38,11 +38,23 @@ pub fn dot(lhs: &[f64], rhs: &[f64]) -> f64 {
 
 // TODO: Implement.
 /// Generate `f`-dependent train matrix and target with random noise.
-pub fn generate<F>(n: usize, m: usize, f: F) -> (Matrix, Vector)
+pub fn generate<F>(n: usize, m: usize, range: (f64, f64), f: F) -> (Matrix, Vector)
     where F: Fn(f64) -> f64,
 {
-    let X = Matrix::new(n, m);
-    let y = vec![0f64; n];
+    let mut X = Matrix::new(n, m);
+    let mut y = vec![0f64; n];
+
+    let mut rng = rand::thread_rng();
+    let mut x = range.0;
+    let delta = (range.1 - range.0) / n as f64;
+    for i in 0..n {
+        y[i] = f(x);
+        for j in 0..m {
+            let noise = 0.01 * rng.gen_range(-range.1, range.1);
+            X[[i, j]] = x + noise;
+        }
+        x += delta;
+    }
 
     (X, y)
 }

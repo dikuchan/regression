@@ -122,14 +122,11 @@ impl Regressor for SGD {
                     dw += X[[i, j]] * G[i];
                 }
                 // Adjust weights.
-                new_weights[j] -= scaling * self.eta / self.batch_size as f64 * dw;
+                new_weights[j] -= scaling * self.eta * dw / self.batch_size as f64;
             }
             // Separately process intercept, or `w0`.
-            let mut di = 0f64;
-            for i in 0..self.batch_size {
-                di += self.intercept + dot(&self.weights, &X[i]) - y[i];
-            }
-            self.intercept -= scaling * self.eta / self.batch_size as f64 * di;
+            let di: f64 = G.iter().sum();
+            self.intercept -= scaling * self.eta * di / self.batch_size as f64;
             self.weights = new_weights;
 
             if self.stopping {

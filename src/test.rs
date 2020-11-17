@@ -1,15 +1,17 @@
 use crate::{
     math::*,
     regressor::{
-        lib::*,
-        sgd::*,
-        adagrad::*,
+        lib::Regressor,
+        sgd::SGD,
+        adagrad::AdaGrad,
+        rmsprop::RMSProp,
+        adam::Adam,
     },
 };
 
 #[test]
 fn test_sgd() {
-    let f = |x: f64| -> f64 { 2f64 * x + 10f64 };
+    let f = |x: f64| { 10f64 + 2f64 * x };
     let (X, y) = generate(1000, 1, (0f64, 20f64), f);
 
     let sgd = SGD::default()
@@ -20,7 +22,7 @@ fn test_sgd() {
 
 #[test]
 fn test_adagrad() {
-    let f = |x: f64| -> f64 { 4f64 * x + 10f64 };
+    let f = |x: f64| { 10f64 + 4f64 * x };
     let (X, y) = generate(1000, 1, (0f64, 40f64), f);
 
     let ag = AdaGrad::default()
@@ -28,4 +30,28 @@ fn test_adagrad() {
         .fit(X.clone(), y.clone());
 
     assert!(ag.score(&X, &y) > 0.6);
+}
+
+#[test]
+fn test_rmsprop() {
+    let f = |x: f64| { -10f64 + 3f64 * x };
+    let (X, y) = generate(1000, 1, (30f64, 60f64), f);
+
+    let rmsp = RMSProp::default()
+        .iterations(10000)
+        .fit(X.clone(), y.clone());
+
+    assert!(rmsp.score(&X, &y) > 0.6);
+}
+
+#[test]
+fn test_adam() {
+    let f = |x: f64| { -2f64 + 10f64 * x };
+    let (X, y) = generate(1000, 1, (2f64, 16f64), f);
+
+    let adam = Adam::default()
+        .iterations(10000)
+        .fit(X.clone(), y.clone());
+
+    assert!(adam.score(&X, &y) > 0.6);
 }

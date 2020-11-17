@@ -4,7 +4,7 @@ use crate::{
     math::{FromCSV, Matrix, Vector},
     regressor::{
         lib::Regressor,
-        sgd::SGD,
+        adam::Adam,
     },
 };
 use std::error::Error;
@@ -19,14 +19,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let X = Matrix::read("./data/train/X.csv")?;
     let y = Vector::read("./data/train/y.csv")?;
 
-    let sgd = SGD::default()
-        .iterations(25000)
+    let regression = Adam::default()
+        .verbose(true)
+        .iterations(50000)
         .fit(X, y);
 
     let X = Matrix::read("./data/test/X.csv")?;
     let y = Vector::read("./data/test/y.csv")?;
 
-    println!("R2 Score: {}", sgd.score(&X, &y));
+    println!("R2 Score: {}", regression.score(&X, &y));
 
     Ok(())
 }

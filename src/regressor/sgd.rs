@@ -12,7 +12,7 @@ use std::{
 /// Note: Regularisation is not implemented for this regressor.
 #[derive(Clone, Debug)]
 pub struct SGD {
-    /// Size of mini-batches used in the gradient computation.
+    /// Size of a mini-batch used in the gradient computation.
     batch: usize,
     /// The maximum number of passes over the training data.
     iterations: usize,
@@ -25,7 +25,7 @@ pub struct SGD {
     verbose: bool,
     /// Number of iterations with no improvement to wait before early stopping.
     stumble: usize,
-    /// Initial learning rate.
+    /// The initial learning rate.
     eta: f64,
     /// Whether to use early stopping to terminate training when validation score is not improving.
     stopping: bool,
@@ -64,7 +64,7 @@ impl Default for SGD {
 }
 
 impl Regressor for SGD {
-    /// Fit linear model with Stochastic Gradient Descent.
+    /// Fit a linear model with Stochastic Gradient Descent.
     ///
     /// # Arguments
     ///
@@ -100,7 +100,10 @@ impl Regressor for SGD {
 
         for e in 1..self.iterations {
             if self.verbose {
-                if e % 100 == 0 { println!("Processed epoch #{}", e); }
+                if e % 250 == 0 {
+                    println!("Processed epoch #{}", e);
+                    println!("Weights: {:?}", self.weights);
+                }
             }
             // It is essential to reshuffle data.
             // Randomly permute all rows.
@@ -114,7 +117,7 @@ impl Regressor for SGD {
             for j in 0..self.weights.len() {
                 let mut derivative = 0f64;
                 for i in 0..self.batch {
-                    derivative += if j == 0 { delta[i] } else { X[[i, j - 1]] * delta[i] }
+                    derivative += (if j == 0 { 1f64 } else { X[[i, j - 1]] }) * delta[i];
                 }
                 // Adjust weights.
                 derivative /= self.batch as f64;
@@ -126,7 +129,7 @@ impl Regressor for SGD {
 
             // If result is not improving, stop procedure early.
             if self.stopping {
-                // Compute MSE on part of dataset.
+                // Compute MSE on a part of the dataset.
                 let mut error = 0f64;
                 for i in 0..fraction as usize {
                     let prediction = self.weights[0] + dot(&self.weights[1..], &X[i]);
@@ -134,12 +137,12 @@ impl Regressor for SGD {
                 }
                 error /= fraction;
                 if error > best_error - self.tolerance { stumble += 1; } else { stumble = 0; }
-                // Remember best weights.
+                // Remember the best weights.
                 if error < best_error { best_weights = self.weights.clone(); }
                 best_error = if error < best_error { error } else { best_error };
 
                 if stumble >= self.stumble {
-                    // Return to weights with minimal MSE.
+                    // Return to the weights with minimal MSE.
                     self.weights = best_weights;
                     if self.verbose { println!("Had to stop, no improvement for {} steps", self.stumble); }
                     return self;

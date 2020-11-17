@@ -3,24 +3,20 @@ use crate::{
     math::*,
 };
 
-use std::{
-    default::Default
-};
+use std::default::Default;
 
-/// For complete documentation on regressors, see `SGD`.
+/// For the complete documentation on regressors, see `SGD`.
 #[derive(Clone, Debug)]
 pub struct AdaGrad {
-    /// Size of mini-batches used in the gradient computation.
+    /// Size of the mini-batch used in the gradient computation.
     batch: usize,
     /// The maximum number of passes over the training data.
     iterations: usize,
-    /// Whether or not the training data should be shuffled after each epoch.
-    shuffle: bool,
     /// Should an important information be printed.
     verbose: bool,
-    /// Initial learning rate.
+    /// The initial learning rate.
     eta: f64,
-    // Small value to avoid division by zero.
+    // A small value to avoid division by zero.
     epsilon: f64,
     weights: Vector,
 }
@@ -28,7 +24,6 @@ pub struct AdaGrad {
 impl AdaGrad {
     builder_field!(batch, usize);
     builder_field!(iterations, usize);
-    builder_field!(shuffle, bool);
     builder_field!(verbose, bool);
     builder_field!(eta, f64);
     builder_field!(epsilon, f64);
@@ -39,7 +34,6 @@ impl Default for AdaGrad {
         Self {
             batch: 8,
             iterations: 1000,
-            shuffle: true,
             verbose: false,
             eta: 1e-2,
             epsilon: 1e-8,
@@ -49,7 +43,7 @@ impl Default for AdaGrad {
 }
 
 impl Regressor for AdaGrad {
-    /// Fit linear model with Adaptive Gradient Descent.
+    /// Fit a linear model with Adaptive Gradient Descent.
     /// Note that AdaGrad does not implement early stopping.
     ///
     /// # Arguments
@@ -81,9 +75,15 @@ impl Regressor for AdaGrad {
             if self.verbose { println!("Changed batch size to {}", self.batch); }
         }
 
-        for _ in 1..self.iterations {
+        for e in 1..self.iterations {
+            if self.verbose {
+                if e % 250 == 0 {
+                    println!("Processed epoch #{}", e);
+                    println!("Weights: {:?}", self.weights);
+                }
+            }
             // Randomly permute all rows.
-            if self.shuffle { shuffle(&mut X, &mut y); }
+            shuffle(&mut X, &mut y);
             // Linear regression function is `w0 + w1 x1 + ... + wp xp = y`.
             // Precompute part of gradient that does not depend on `x`.
             let delta: Vector = (0..self.batch)
@@ -92,14 +92,14 @@ impl Regressor for AdaGrad {
             // For each weight `wi` find derivative using batch of observations.
             for j in 0..self.weights.len() {
                 let mut derivative = 0f64;
-                // Derivative of intercept doesn't have component of X.
+                // Derivative of intercept doesn't have `x` component.
                 for i in 0..self.batch {
-                    derivative += if j == 0 { 1f64 } else { X[[i, j - 1]] } * delta[i];
+                    derivative += (if j == 0 { 1f64 } else { X[[i, j - 1]] }) * delta[i];
                 }
                 derivative /= self.batch as f64;
                 // Calculate new eta values.
                 // Accumulate past gradient variance.
-                G[j] += f64::powi(derivative, 2);
+                G[j] += derivative.powi(2);
                 // Scale eta value.
                 let eta = self.eta / f64::sqrt(G[j] + self.epsilon);
                 // Adjust weights.

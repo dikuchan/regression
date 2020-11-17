@@ -14,9 +14,15 @@ macro_rules! builder_field {
 
 /// Base linear regressor interface.
 /// Inspired by `Pipeline` class from `scikit-learn` library.
+///
+/// Only `fit` and `weights` methods are needed to be implemented.
+/// Other methods have standard implementation and are auto-inherited.
 pub trait Regressor {
+    /// Assess the best weights of linear regression on the provided dataset.
     fn fit(self, X: Matrix, y: Vector) -> Self;
 
+    /// Return weights of a fitted regressor.
+    /// This method should be implemented to automatically inherit `predict` method.
     fn weights(&self) -> &Vector;
 
     /// Predict using the linear model.
@@ -37,7 +43,7 @@ pub trait Regressor {
         predictions
     }
 
-    /// Assess model efficiency with coefficient of determination.
+    /// Assess the efficiency of a model with R-squared score.
     fn score(&self, X: &Matrix, y: &Vector) -> f64 {
         let predictions = &self.predict(X);
         let mean = y.iter().sum::<f64>() / y.len() as f64;
@@ -49,5 +55,15 @@ pub trait Regressor {
             .sum::<f64>();
 
         1f64 - (ssres / sstot)
+    }
+
+    /// Calculate mean squared deviation of an estimator.
+    fn mse(&self, X: &Matrix, y: &Vector) -> f64 {
+        let predictions = &self.predict(X);
+        let error = predictions.iter().zip(y.iter())
+            .map(|yh, y| f64::powi(y - yh, 2))
+            .sum::<f64>();
+
+        error / predictions.len() as f64
     }
 }

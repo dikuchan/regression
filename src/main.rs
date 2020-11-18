@@ -3,7 +3,7 @@
 use crate::{
     math::{FromCSV, Matrix, Vector},
     regressor::{
-        lib::Regressor,
+        lib::*,
         adam::Adam,
     },
 };
@@ -27,7 +27,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let X = Matrix::read("./data/test/X.csv")?;
     let y = Vector::read("./data/test/y.csv")?;
 
-    println!("R2 Score: {}", regression.score(&X, &y));
+    println!("Error: {:.05}", regression.mse(&X, &y));
+    println!("R2 Score: {:.05}", regression.score(&X, &y));
 
     Ok(())
 }

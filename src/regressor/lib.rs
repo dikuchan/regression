@@ -1,5 +1,7 @@
-use crate::math::{Matrix, Vector, dot, shuffle};
-use crate::regressor::sgd::SGD;
+use crate::{
+    math::{Matrix, Vector, dot, shuffle},
+    regressor::sgd::SGD,
+};
 
 macro_rules! builder_field {
     ($field:ident, $field_type:ty) => {
@@ -73,6 +75,25 @@ pub trait Regressor {
     }
 }
 
+/// Assess the best value of alpha coefficient in L2 regularization.
+///
+/// # Arguments
+///
+/// * `X`: Observation matrix.
+/// * `y`: Target vector.
+/// * `k`: The parameter in k-fold algorithm.
+/// * `grid`: Vector of possible values of alpha to use in the assessment.
+///
+/// # Examples
+/// ```rust
+/// let X = Matrix::read("./data/X.csv")?;
+/// let y = Vector::read("./data/y.csv")?;
+/// let grid = (0..250)
+///     .map(|p| 1e-4 / p as f64)
+///     .collect::<Vector>();
+///
+/// println!("Optimal alpha: {}", assess_alpha(&X, &y, 5, &grid));
+/// ```
 pub fn assess_alpha(X: &Matrix, y: &Vector, k: usize, grid: &Vec<f64>) -> f64 {
     let n = X.rows();
     let mut alpha = 0f64;
@@ -81,12 +102,10 @@ pub fn assess_alpha(X: &Matrix, y: &Vector, k: usize, grid: &Vec<f64>) -> f64 {
     let (XT, yT) = (X.slice(0, n / k - 1), y[0..n / k - 1].to_vec());
     let (X0, y0) = (X.slice(n / k, n - 1), y[n / k..n - 1].to_vec());
 
-    let mut i: usize = 0;
     for &p in grid.iter() {
-        println!("Iteration: {} out of {}", i, grid.len());
-
         let model = SGD::default()
-            .iterations(20000)
+            .iterations(25000)
+            .penalty(Penalty::L2)
             .alpha(p)
             .fit(XT.clone(), yT.clone());
         let error = model.mse(&X0, &y0);
@@ -94,8 +113,6 @@ pub fn assess_alpha(X: &Matrix, y: &Vector, k: usize, grid: &Vec<f64>) -> f64 {
             best_error = error;
             alpha = p;
         }
-
-        i += 1;
     }
 
     alpha

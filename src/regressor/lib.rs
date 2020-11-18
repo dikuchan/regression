@@ -1,7 +1,5 @@
-use crate::math::{
-    Matrix, Vector,
-    dot,
-};
+use crate::math::{Matrix, Vector, dot, shuffle};
+use crate::regressor::sgd::SGD;
 
 macro_rules! builder_field {
     ($field:ident, $field_type:ty) => {
@@ -10,6 +8,13 @@ macro_rules! builder_field {
             self
         }
     };
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Penalty {
+    L1,
+    L2,
+    None,
 }
 
 /// Base linear regressor interface.
@@ -61,9 +66,37 @@ pub trait Regressor {
     fn mse(&self, X: &Matrix, y: &Vector) -> f64 {
         let predictions = &self.predict(X);
         let error = predictions.iter().zip(y.iter())
-            .map(|yh, y| f64::powi(y - yh, 2))
+            .map(|(yh, y)| f64::powi(y - yh, 2))
             .sum::<f64>();
 
         error / predictions.len() as f64
     }
+}
+
+pub fn assess_alpha(X: &Matrix, y: &Vector, k: usize, grid: &Vec<f64>) -> f64 {
+    let n = X.rows();
+    let mut alpha = 0f64;
+    let mut best_error = f64::MAX;
+
+    let (XT, yT) = (X.slice(0, n / k - 1), y[0..n / k - 1].to_vec());
+    let (X0, y0) = (X.slice(n / k, n - 1), y[n / k..n - 1].to_vec());
+
+    let mut i: usize = 0;
+    for &p in grid.iter() {
+        println!("Iteration: {} out of {}", i, grid.len());
+
+        let model = SGD::default()
+            .iterations(20000)
+            .alpha(p)
+            .fit(XT.clone(), yT.clone());
+        let error = model.mse(&X0, &y0);
+        if error < best_error {
+            best_error = error;
+            alpha = p;
+        }
+
+        i += 1;
+    }
+
+    alpha
 }

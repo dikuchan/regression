@@ -11,6 +11,7 @@ use rand::{
     Rng,
     seq::SliceRandom,
 };
+use std::ops::Range;
 
 /// Permute in-place all matrix rows with respect to target vector.
 pub fn shuffle(X: &mut Matrix, y: &mut Vector) {
@@ -100,6 +101,16 @@ impl Matrix {
         }
     }
 
+    pub fn slice(&self, i: usize, j: usize) -> Self {
+        let data = &self[i..j];
+
+        Matrix {
+            rows: j - i,
+            cols: self.cols,
+            data: data.to_vec(),
+        }
+    }
+
     pub fn rows(&self) -> usize { self.rows }
 
     pub fn cols(&self) -> usize { self.cols }
@@ -177,6 +188,19 @@ impl Index<[usize; 2]> for Matrix {
     }
 }
 
+impl Index<Range<usize>> for Matrix {
+    type Output = [f64];
+
+    fn index(&self, idx: Range<usize>) -> &Self::Output {
+        let Range { start: i, end: j } = idx;
+        if j >= self.rows {
+            panic!("index out of bounds: the rows num is {} but the index is {}", self.rows, j);
+        }
+
+        &self.data[i * self.cols..j * self.cols]
+    }
+}
+
 impl IndexMut<usize> for Matrix {
     fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
         if idx >= self.rows {
@@ -196,5 +220,16 @@ impl IndexMut<[usize; 2]> for Matrix {
         }
 
         &mut self.data[i * self.cols + j]
+    }
+}
+
+impl IndexMut<Range<usize>> for Matrix {
+    fn index_mut(&mut self, idx: Range<usize>) -> &mut Self::Output {
+        let Range { start: i, end: j } = idx;
+        if j >= self.rows {
+            panic!("index out of bounds: the rows num is {} but the index is {}", self.rows, j);
+        }
+
+        &mut self.data[i * self.cols..j * self.cols]
     }
 }

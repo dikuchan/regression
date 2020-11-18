@@ -8,14 +8,16 @@ use std::{
 };
 
 /// Main parameters are the same as parameters of the `SGDRegressor` in `scikit-learn` library.
-///
-/// Note: Regularisation is not implemented for this regressor.
 #[derive(Clone, Debug)]
 pub struct SGD {
     /// Size of a mini-batch used in the gradient computation.
     batch: usize,
     /// The maximum number of passes over the training data.
     iterations: usize,
+    /// Constant that multiplies the regularization term.
+    alpha: f64,
+    /// The penalty (aka regularization term) to be used.
+    penalty: Penalty,
     /// The stopping criterion.
     /// Training will stop when `error > best_error - tolerance`.
     tolerance: f64,
@@ -29,7 +31,7 @@ pub struct SGD {
     eta: f64,
     /// Whether to use early stopping to terminate training when validation score is not improving.
     stopping: bool,
-    // The proportion of training data to set aside as validation set for early stopping.
+    /// The proportion of training data to set aside as validation set for early stopping.
     fraction: f64,
     weights: Vector,
 }
@@ -37,6 +39,8 @@ pub struct SGD {
 impl SGD {
     builder_field!(batch, usize);
     builder_field!(iterations, usize);
+    builder_field!(alpha, f64);
+    builder_field!(penalty, Penalty);
     builder_field!(tolerance, f64);
     builder_field!(shuffle, bool);
     builder_field!(verbose, bool);
@@ -51,6 +55,8 @@ impl Default for SGD {
         Self {
             batch: 8,
             iterations: 1000,
+            alpha: 1e-4,
+            penalty: Penalty::L2,
             tolerance: 1e-3,
             shuffle: true,
             verbose: false,
@@ -121,6 +127,11 @@ impl Regressor for SGD {
                 }
                 // Adjust weights.
                 derivative /= self.batch as f64;
+                derivative += match self.penalty {
+                    Penalty::L1 => self.alpha * if self.weights[j] > 0f64 { 1f64 } else { -1f64 },
+                    Penalty::L2 => 2f64 * self.alpha * self.weights[j],
+                    Penalty::None => 0f64,
+                };
                 // Inverse scaling of learning rate.
                 // Default method in `sklearn`.
                 let eta = self.eta / f64::powf(e as f64, 0.25);

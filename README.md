@@ -21,6 +21,12 @@ With regularization:
 - [x] Lasso
 - [x] Ridge
 
+### TODO
+
+Implement drop feature for the one-hot encoding procedure.
+Multi-collinearity causes excessively high intercept values.
+See more [here](https://geoffruddock.com/one-hot-encoding-plus-linear-regression-equals-multi-collinearity/).
+
 ### Usage
 
 `Makefile` is presented for convenience.
@@ -32,7 +38,7 @@ Source code of all implemented optimization methods is placed in `src/regressor`
 
 ### Notes
 
-Regularization was added to classical SGD method in `src/regressor/sgd.rs` as an optional parameter.
+Regularization was added to the classical SGD method in `src/regressor/sgd.rs` as an optional parameter.
 
-L2-regularization was not implemented for adaptive gradient methods due to 
+L2-regularization was not implemented the for adaptive gradient methods due to 
 [its inefficiency](https://stackoverflow.com/questions/42415319/should-i-avoid-to-use-l2-regularization-in-conjuntion-with-rmsprop).

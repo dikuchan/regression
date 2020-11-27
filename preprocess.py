@@ -5,6 +5,9 @@ import csv
 
 from collections import defaultdict
 from math import sqrt
+from progress.bar import Bar
+
+bar = Bar('Processing data...', max=8)
 
 
 def ohe(data):
@@ -18,6 +21,7 @@ def ohe(data):
             replacement[f + str(u)] = [1. if v == u else 0. for v in column]
         data.pop(f)
     data.update(replacement)
+    bar.next()
 
 
 def drop(data):
@@ -26,6 +30,10 @@ def drop(data):
             data.pop(f)
         elif data[f].count(data[f][-1]) == len(data[f]):
             data.pop(f)
+        else:
+            column = [float(x) for x in data[f]]
+            data[f] = column
+    bar.next()
 
 
 def __standard(data):
@@ -33,12 +41,14 @@ def __standard(data):
         mu = sum(column) / len(column)
         sigma = sqrt(sum([(v - mu) ** 2 for v in column]) / len(column))
         data[f] = [0. if sigma == 0. else (v - mu) / sigma for v in column]
+    bar.next()
 
 
 def __minmax(data):
     for f, column in data.items():
         x, y = min(column), max(column)
         data[f] = [0. if x == y else (v - x) / (y - x) for v in column]
+    bar.next()
 
 
 def scale(data, method='standard'):
@@ -59,6 +69,7 @@ def split(data, k):
             test[f].append(column[i])
         for i in range(int(k * length), length):
             train[f].append(column[i])
+    bar.next()
 
     return train, test
 
@@ -78,6 +89,7 @@ def read_csv(filepath):
         # Comma may occur on end of line
         if '' in result:
             result.pop('', None)
+        bar.next()
 
         return result
 
@@ -89,6 +101,7 @@ def write_csv(filepath, data):
         for i in range(0, length):
             row = [data[v][i] for v in data.keys()]
             writer.writerow(row)
+        bar.next()
 
 
 def main():
@@ -131,3 +144,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    bar.finish()

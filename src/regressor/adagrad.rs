@@ -8,23 +8,24 @@ use std::default::Default;
 /// For the complete documentation on regressors, see `SGD`.
 #[derive(Clone, Debug)]
 pub struct AdaGrad {
-    /// Size of the mini-batch used in the gradient computation.
-    batch: usize,
-    /// The maximum number of passes over the training data.
     iterations: usize,
-    /// Should an important information be printed.
     verbose: bool,
-    /// The initial learning rate.
+    stumble: usize,
+    tolerance: f64,
+    shuffle: bool,
     eta: f64,
     // A small value to avoid division by zero.
     epsilon: f64,
+    intercept: f64,
     weights: Vector,
 }
 
 impl AdaGrad {
-    builder_field!(batch, usize);
     builder_field!(iterations, usize);
     builder_field!(verbose, bool);
+    builder_field!(stumble, usize);
+    builder_field!(tolerance, f64);
+    builder_field!(shuffle, bool);
     builder_field!(eta, f64);
     builder_field!(epsilon, f64);
 }
@@ -32,11 +33,14 @@ impl AdaGrad {
 impl Default for AdaGrad {
     fn default() -> Self {
         Self {
-            batch: 8,
             iterations: 1000,
             verbose: false,
+            stumble: 6,
+            tolerance: 1e-3,
+            shuffle: true,
             eta: 1e-2,
             epsilon: 1e-8,
+            intercept: 0f64,
             weights: Vec::new(),
         }
     }
@@ -44,66 +48,54 @@ impl Default for AdaGrad {
 
 impl Regressor for AdaGrad {
     /// Fit a linear model with Adaptive Gradient Descent.
-    /// Note that AdaGrad does not implement early stopping.
     ///
     /// # Arguments
     ///
     /// * `X`: Train matrix filled with `N` observations and `P` features.
     /// * `y`: Target vector of matrix `X`. One column with precisely `N` rows.
-    ///
-    /// # Examples
-    /// ```rust
-    /// let X = Matrix::read("./train_X.csv");
-    /// let y = Vector::read("./train_y.csv");
-    /// let ag = AdaGrad::default()
-    ///     .iterations(120000)
-    ///     .verbose(true)
-    ///     .fit(X, y);
-    ///
-    /// let y = Vector::read("./test_y.csv");
-    /// let prediction = gcd.predict(&y);
-    /// ```
     fn fit(mut self, mut X: Matrix, mut y: Vector) -> Self {
-        // Squared loss is convex function, so start with zeroes.
-        self.weights = vec![0f64; 1 + X.cols()] as Vector;
-        // For each weight, store variance to adjust its weight.
-        let mut G = vec![0f64; 1 + X.cols()] as Vector;
+        self.weights = vec![0f64; X.cols()];
+        // For each weight store variance to adjust them.
+        let mut G = vec![0f64; X.cols() + 1];
 
-        // If batches are too large, shrink them.
-        if self.batch >= X.rows() {
-            self.batch = if X.rows() > 4 { X.rows() / 4 } else { 1 };
-            if self.verbose { println!("Changed batch size to {}", self.batch); }
-        }
+        let mut t = 0usize;
+        let mut stumble = 0usize;
+        let mut best_loss = f64::MAX;
 
-        for e in 1..self.iterations {
-            if self.verbose {
-                if e % 250 == 0 {
-                    println!("Processed epoch #{}", e);
-                    println!("Weights: {:?}", self.weights);
+        for e in 0..self.iterations {
+            let mut loss = 0f64;
+            if self.shuffle { shuffle(&mut X, &mut y) };
+            for i in 0..X.rows() {
+                t += 1;
+                let delta = self.intercept + dot(&self.weights, &X[i]) - y[i];
+                {
+                    G[0] += delta.powi(2);
+                    let eta = self.eta / (G[0] + self.epsilon).sqrt();
+                    self.intercept -= eta * delta;
+                }
+                for j in 0..X.cols() {
+                    let derivative = delta * X[[i, j]];
+                    // Accumulate past gradient variance.
+                    G[j + 1] += derivative.powi(2);
+                    // Scale eta value.
+                    let eta = self.eta / (G[j + 1] + self.epsilon).sqrt();
+                    // Adjust weights.
+                    self.weights[j] -= eta * derivative;
                 }
             }
-            // Randomly permute all rows.
-            shuffle(&mut X, &mut y);
-            // Linear regression function is `w0 + w1 x1 + ... + wp xp = y`.
-            // Precompute part of gradient that does not depend on `x`.
-            let delta: Vector = (0..self.batch)
-                .map(|i| self.weights[0] + dot(&self.weights[1..], &X[i]) - y[i])
-                .collect();
-            // For each weight `wi` find derivative using batch of observations.
-            for j in 0..self.weights.len() {
-                let mut derivative = 0f64;
-                // Derivative of intercept doesn't have `x` component.
-                for i in 0..self.batch {
-                    derivative += (if j == 0 { 1f64 } else { X[[i, j - 1]] }) * delta[i];
-                }
-                derivative /= self.batch as f64;
-                // Calculate new eta values.
-                // Accumulate past gradient variance.
-                G[j] += derivative.powi(2);
-                // Scale eta value.
-                let eta = self.eta / f64::sqrt(G[j] + self.epsilon);
-                // Adjust weights.
-                self.weights[j] -= eta * derivative;
+
+            loss = loss / X.rows() as f64;
+            if loss > best_loss - self.tolerance { stumble += 1; } else { stumble = 0; }
+            if loss < best_loss { best_loss = loss; }
+
+            if self.verbose {
+                println!("-- Epoch {}, Norm: {}, Bias: {}, T: {}, Average loss: {:.06}",
+                         e, norm(&self.weights), self.intercept, t, loss);
+            }
+
+            if stumble > self.stumble {
+                if self.verbose { println!("Convergence after {} epochs", e); }
+                return self;
             }
         }
 
@@ -112,5 +104,9 @@ impl Regressor for AdaGrad {
 
     fn weights(&self) -> &Vector {
         &self.weights
+    }
+
+    fn intercept(&self) -> f64 {
+        self.intercept
     }
 }

@@ -8,13 +8,11 @@ use std::default::Default;
 /// For the complete documentation on regressors, see `SGD`.
 #[derive(Clone, Debug)]
 pub struct Adam {
-    /// Size of a mini-batch used in the gradient computation.
-    batch: usize,
-    /// The maximum number of passes over the training data.
     iterations: usize,
-    /// Should an important information be printed.
     verbose: bool,
-    /// Initial learning rate.
+    tolerance: f64,
+    shuffle: bool,
+    stumble: usize,
     eta: f64,
     // The conservation factor for gradient.
     beta_m: f64,
@@ -22,29 +20,44 @@ pub struct Adam {
     beta_v: f64,
     // A small value to avoid division by zero.
     epsilon: f64,
+    intercept: f64,
     weights: Vector,
 }
 
 impl Adam {
-    builder_field!(batch, usize);
     builder_field!(iterations, usize);
     builder_field!(verbose, bool);
+    builder_field!(tolerance, f64);
+    builder_field!(stumble, usize);
     builder_field!(eta, f64);
     builder_field!(beta_m, f64);
     builder_field!(beta_v, f64);
     builder_field!(epsilon, f64);
+
+    fn update(&self, i: usize, d: f64, M: &mut Vector, V: &mut Vector, epoch: usize) -> (f64, f64) {
+        M[i] = self.beta_m * M[i] + (1f64 - self.beta_m) * d;
+        V[i] = self.beta_v * V[i] + (1f64 - self.beta_v) * d.powi(2);
+        let m = M[i] / (1f64 - self.beta_m.powi(epoch as i32));
+        let v = V[i] / (1f64 - self.beta_v.powi(epoch as i32));
+        let eta = self.eta / (v + self.epsilon).sqrt();
+
+        (eta, m)
+    }
 }
 
 impl Default for Adam {
     fn default() -> Self {
         Self {
-            batch: 8,
             iterations: 1000,
             verbose: false,
+            tolerance: 1e-3,
+            shuffle: true,
+            stumble: 6,
             eta: 1e-2,
             beta_m: 0.9,
             beta_v: 0.9,
             epsilon: 1e-8,
+            intercept: 0f64,
             weights: Vec::new(),
         }
     }
@@ -52,68 +65,51 @@ impl Default for Adam {
 
 impl Regressor for Adam {
     /// Fit a linear model with Adaptive Moment Estimation.
-    /// Note that Adam does not implement early stopping.
     ///
     /// # Arguments
     ///
     /// * `X`: Train matrix filled with `N` observations and `P` features.
     /// * `y`: Target vector of matrix `X`. One column with precisely `N` rows.
-    ///
-    /// # Examples
-    /// ```rust
-    /// let X = Matrix::read("./train_X.csv");
-    /// let y = Vector::read("./train_y.csv");
-    /// let adam = Adam::default()
-    ///     .verbose(true)
-    ///     .fit(X, y);
-    ///
-    /// let y = Vector::read("./test_y.csv");
-    /// let prediction = adam.predict(&y);
-    /// ```
     fn fit(mut self, mut X: Matrix, mut y: Vector) -> Self {
-        // Squared loss is convex function, so start with zeroes.
-        self.weights = vec![0f64; 1 + X.cols()] as Vector;
+        self.weights = vec![0f64; X.cols()];
+        // Precompute rate of weight changes.
+        let mut M = vec![0f64; 1 + X.cols()];
+        let mut V = vec![0f64; 1 + X.cols()];
 
-        let mut M = vec![0f64; 1 + X.cols()] as Vector;
-        let mut V = vec![0f64; 1 + X.cols()] as Vector;
-
-        // If batches are too large, shrink them.
-        if self.batch >= X.rows() {
-            self.batch = if X.rows() > 4 { X.rows() / 4 } else { 1 };
-            if self.verbose { println!("Changed batch size to {}", self.batch); }
-        }
+        let mut t = 0usize;
+        let mut stumble = 0usize;
+        let mut best_loss = f64::MAX;
 
         for e in 1..self.iterations {
-            if self.verbose {
-                if e % 250 == 0 {
-                    println!("Processed epoch #{}", e);
-                    println!("Weights: {:?}", self.weights);
+            let mut loss = 0f64;
+            if self.shuffle { shuffle(&mut X, &mut y); }
+            for i in 0..X.rows() {
+                t += 1;
+                let delta = self.intercept + dot(&self.weights, &X[i]) - y[i];
+                {
+                    let (eta, m) = self.update(0, delta, &mut M, &mut V, e);
+                    self.intercept -= eta * m;
                 }
+                for j in 0..X.cols() {
+                    let derivative = delta * X[[i, j]];
+                    let (eta, m) = self.update(j + 1, derivative, &mut M, &mut V, e);
+                    self.weights[j] -= eta * m;
+                }
+                loss += delta.powi(2) / 2f64;
             }
-            // Randomly permute all rows.
-            shuffle(&mut X, &mut y);
-            // Linear regression function is `w0 + w1 x1 + ... + wp xp = y`.
-            // Precompute part of gradient that does not depend on `x`.
-            let delta: Vector = (0..self.batch)
-                .map(|i| self.weights[0] + dot(&self.weights[1..], &X[i]) - y[i])
-                .collect();
-            // For each weight `wi` find derivative using a batch of observations.
-            for j in 0..self.weights.len() {
-                let mut derivative = 0f64;
-                // Derivative of intercept doesn't have `x` component.
-                for i in 0..self.batch {
-                    derivative += (if j == 0 { 1f64 } else { X[[i, j - 1]] }) * delta[i];
-                }
-                derivative /= self.batch as f64;
-                // Calculate new movement conservation and RMS values.
-                M[j] = self.beta_m * M[j] + (1f64 - self.beta_m) * derivative;
-                V[j] = self.beta_v * V[j] + (1f64 - self.beta_v) * derivative.powi(2);
-                let m = M[j] / (1f64 - self.beta_m.powi(e as i32));
-                let v = V[j] / (1f64 - self.beta_v.powi(e as i32));
-                // Scale eta value.
-                let eta = self.eta / f64::sqrt(v + self.epsilon);
-                // Adjust weights.
-                self.weights[j] -= eta * m;
+
+            loss = loss / X.rows() as f64;
+            if loss > best_loss - self.tolerance { stumble += 1; } else { stumble = 0; }
+            if loss < best_loss { best_loss = loss; }
+
+            if self.verbose {
+                println!("-- Epoch {}, Norm: {}, Bias: {}, T: {}, Average loss: {:.06}",
+                         e, norm(&self.weights), self.intercept, t, loss);
+            }
+
+            if stumble > self.stumble {
+                if self.verbose { println!("Convergence after {} epochs", e); }
+                return self;
             }
         }
 
@@ -122,5 +118,9 @@ impl Regressor for Adam {
 
     fn weights(&self) -> &Vector {
         &self.weights
+    }
+
+    fn intercept(&self) -> f64 {
+        self.intercept
     }
 }

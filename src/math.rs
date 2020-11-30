@@ -37,12 +37,19 @@ pub fn dot(lhs: &[f64], rhs: &[f64]) -> f64 {
         .sum()
 }
 
-// TODO: Implement.
+/// L2 norm of a vector.
+pub fn norm(x: &[f64]) -> f64 {
+    x.iter()
+        .map(|&x| f64::powi(x, 2))
+        .sum::<f64>()
+        .sqrt()
+}
+
 /// Generate `f`-dependent train matrix and target with random noise.
-pub fn generate<F>(n: usize, m: usize, range: (f64, f64), f: F) -> (Matrix, Vector)
+pub fn generate<F>(n: usize, range: (f64, f64), f: F) -> (Matrix, Vector)
     where F: Fn(f64) -> f64,
 {
-    let mut X = Matrix::new(n, m);
+    let mut X = Matrix::new(n, 1);
     let mut y = vec![0f64; n];
 
     let mut rng = rand::thread_rng();
@@ -50,10 +57,7 @@ pub fn generate<F>(n: usize, m: usize, range: (f64, f64), f: F) -> (Matrix, Vect
     let delta = (range.1 - range.0) / n as f64;
     for i in 0..n {
         y[i] = f(x);
-        for j in 0..m {
-            let noise = 0.01 * rng.gen_range(-range.1, range.1);
-            X[[i, j]] = x + noise;
-        }
+        X[[i, 0]] = x + 1e-2 * rng.gen_range(-range.1, range.1);
         x += delta;
     }
 

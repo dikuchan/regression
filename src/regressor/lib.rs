@@ -1,5 +1,5 @@
 use crate::{
-    math::{Matrix, Vector, dot, shuffle},
+    math::{Matrix, Vector, dot},
     regressor::sgd::SGD,
 };
 
@@ -19,6 +19,16 @@ pub enum Penalty {
     None,
 }
 
+impl Penalty {
+    pub fn compute(&self, alpha: f64, weight: f64) -> f64 {
+        match self {
+            Penalty::L1 => alpha * if weight > 0f64 { 1f64 } else { -1f64 },
+            Penalty::L2 => 2f64 * alpha * weight,
+            Penalty::None => 0f64,
+        }
+    }
+}
+
 /// Base linear regressor interface.
 /// Inspired by `Pipeline` class from `scikit-learn` library.
 ///
@@ -28,9 +38,13 @@ pub trait Regressor {
     /// Assess the best weights of linear regression on the provided dataset.
     fn fit(self, X: Matrix, y: Vector) -> Self;
 
-    /// Return weights of a fitted regressor.
-    /// This method should be implemented to automatically inherit `predict` method.
+    /// Return the weights of a fitted regressor.
+    /// This method should be implemented in order to automatically inherit `predict` method.
     fn weights(&self) -> &Vector;
+
+    /// Return the bias of a fitted regressor.
+    /// This method should be implemented in order to automatically inherit `predict` method.
+    fn intercept(&self) -> f64;
 
     /// Predict using the linear model.
     ///
@@ -43,7 +57,7 @@ pub trait Regressor {
     fn predict(&self, X: &Matrix) -> Vector {
         let mut predictions = Vector::new();
         for i in 0..X.rows() {
-            let prediction = self.weights()[0] + dot(&self.weights()[1..], &X[i]);
+            let prediction = self.intercept() + dot(&self.weights(), &X[i]);
             predictions.push(prediction);
         }
 
@@ -53,13 +67,11 @@ pub trait Regressor {
     /// Assess the efficiency of a model with R-squared score.
     fn score(&self, X: &Matrix, y: &Vector) -> f64 {
         let predictions = &self.predict(X);
+        let ssres = self.mse(X, y);
         let mean = y.iter().sum::<f64>() / y.len() as f64;
-        let ssres = predictions.iter().zip(y.iter())
-            .map(|(yh, y)| f64::powi(y - yh, 2))
-            .sum::<f64>();
         let sstot = y.iter()
             .map(|y| f64::powi(y - mean, 2))
-            .sum::<f64>();
+            .sum::<f64>() / predictions.len() as f64;
 
         1f64 - (ssres / sstot)
     }

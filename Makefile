@@ -2,8 +2,7 @@ all: preprocess compute
 
 preprocess:
 	chmod +x preprocess.py
-	./preprocess.py data/airline_delay.csv --target=arr_delay --scale=minmax
+	./preprocess.py data/flights.csv --target=DEP_DELAY --scale=minmax --ohe
 
 compute:
-	cargo build --release
-	./target/release/regression
+	cargo run --release

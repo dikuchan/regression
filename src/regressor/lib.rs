@@ -42,10 +42,6 @@ pub trait Regressor {
     /// This method should be implemented in order to automatically inherit `predict` method.
     fn weights(&self) -> &Vector;
 
-    /// Return the bias of a fitted regressor.
-    /// This method should be implemented in order to automatically inherit `predict` method.
-    fn intercept(&self) -> f64;
-
     /// Predict using the linear model.
     ///
     /// # Arguments
@@ -57,7 +53,7 @@ pub trait Regressor {
     fn predict(&self, X: &Matrix) -> Vector {
         let mut predictions = Vector::new();
         for i in 0..X.rows() {
-            let prediction = self.intercept() + dot(&self.weights(), &X[i]);
+            let prediction = self.weights()[0] + dot(&self.weights()[1..], &X[i]);
             predictions.push(prediction);
         }
 
@@ -67,11 +63,13 @@ pub trait Regressor {
     /// Assess the efficiency of a model with R-squared score.
     fn score(&self, X: &Matrix, y: &Vector) -> f64 {
         let predictions = &self.predict(X);
-        let ssres = self.mse(X, y);
+        let ssres = predictions.iter().zip(y.iter())
+            .map(|(yh, y)| (y - yh).powi(2))
+            .sum::<f64>();
         let mean = y.iter().sum::<f64>() / y.len() as f64;
         let sstot = y.iter()
-            .map(|y| f64::powi(y - mean, 2))
-            .sum::<f64>() / predictions.len() as f64;
+            .map(|y| (y - mean).powi(2))
+            .sum::<f64>();
 
         1f64 - (ssres / sstot)
     }
@@ -80,7 +78,7 @@ pub trait Regressor {
     fn mse(&self, X: &Matrix, y: &Vector) -> f64 {
         let predictions = &self.predict(X);
         let error = predictions.iter().zip(y.iter())
-            .map(|(yh, y)| f64::powi(y - yh, 2))
+            .map(|(yh, y)| (y - yh).powi(2))
             .sum::<f64>();
 
         error / predictions.len() as f64
@@ -111,12 +109,12 @@ pub fn assess_alpha(X: &Matrix, y: &Vector, k: usize, grid: &Vec<f64>) -> f64 {
     let mut alpha = 0f64;
     let mut best_error = f64::MAX;
 
-    let (XT, yT) = (X.slice(0, n / k - 1), y[0..n / k - 1].to_vec());
-    let (X0, y0) = (X.slice(n / k, n - 1), y[n / k..n - 1].to_vec());
+    let (XT, X0) = X.slice(n / k);
+    let (yT, y0) = (y[0..n / k - 1].to_vec(), y[n / k..n - 1].to_vec());
 
-    for &p in grid.iter() {
+    for (i, &p) in grid.iter().enumerate() {
         let model = SGD::default()
-            .iterations(25000)
+            .iterations(1000)
             .penalty(Penalty::L2)
             .alpha(p)
             .fit(XT.clone(), yT.clone());
@@ -125,6 +123,8 @@ pub fn assess_alpha(X: &Matrix, y: &Vector, k: usize, grid: &Vec<f64>) -> f64 {
             best_error = error;
             alpha = p;
         }
+
+        println!("-- Iteration {} out of {}", i, grid.len());
     }
 
     alpha

@@ -105,14 +105,20 @@ impl Matrix {
         }
     }
 
-    pub fn slice(&self, i: usize, j: usize) -> Self {
-        let data = &self[i..j];
-
-        Matrix {
-            rows: j - i,
+    pub fn slice(&self, i: usize) -> (Self, Self) {
+        let l = Matrix {
+            rows: i - 1,
             cols: self.cols,
-            data: data.to_vec(),
-        }
+            data: self[0..i - 1].to_vec(),
+        };
+
+        let r = Matrix {
+            rows: self.rows - i,
+            cols: self.cols,
+            data: self[i..self.rows].to_vec(),
+        };
+
+        (l, r)
     }
 
     pub fn rows(&self) -> usize { self.rows }

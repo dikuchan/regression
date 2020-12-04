@@ -1,46 +1,21 @@
 use crate::{
-    regressor::lib::*,
     math::*,
+    regressor::{
+        config::Config,
+        regressor::Regressor,
+    },
 };
-
-use std::default::Default;
 
 /// For the complete documentation on regressors, see `SGD`.
 #[derive(Clone, Debug)]
 pub struct AdaGrad {
-    iterations: usize,
-    verbose: bool,
-    stumble: usize,
-    tolerance: f64,
-    shuffle: bool,
-    eta: f64,
-    // A small value to avoid division by zero.
-    epsilon: f64,
+    config: Config,
     weights: Vector,
 }
 
 impl AdaGrad {
-    builder_field!(iterations, usize);
-    builder_field!(verbose, bool);
-    builder_field!(stumble, usize);
-    builder_field!(tolerance, f64);
-    builder_field!(shuffle, bool);
-    builder_field!(eta, f64);
-    builder_field!(epsilon, f64);
-}
-
-impl Default for AdaGrad {
-    fn default() -> Self {
-        Self {
-            iterations: 1000,
-            verbose: false,
-            stumble: 6,
-            tolerance: 1e-3,
-            shuffle: true,
-            eta: 1e-2,
-            epsilon: 1e-8,
-            weights: Vec::new(),
-        }
+    pub(crate) fn new(config: Config) -> Self {
+        AdaGrad { config, weights: Vector::new() }
     }
 }
 
@@ -61,8 +36,8 @@ impl Regressor for AdaGrad {
         let mut best_loss = f64::MAX;
         let mut best_weights = vec![0f64; 1 + X.cols()];
 
-        for e in 0..self.iterations {
-            if self.shuffle { shuffle(&mut X, &mut y) };
+        for e in 0..self.config.iterations {
+            if self.config.shuffle { shuffle(&mut X, &mut y) };
 
             let mut loss = 0f64;
             for i in 0..X.rows() {
@@ -73,27 +48,27 @@ impl Regressor for AdaGrad {
                     // Accumulate past gradient variance.
                     G[j] += derivative.powi(2);
                     // Scale eta.
-                    let eta = self.eta / (G[j] + self.epsilon).sqrt();
+                    let eta = self.config.eta / (G[j] + self.config.epsilon).sqrt();
                     // Adjust weights.
                     self.weights[j] -= eta * derivative;
                 }
             }
 
             loss = loss / X.rows() as f64;
-            if loss > best_loss - self.tolerance { stumble += 1; } else { stumble = 0; }
+            if loss > best_loss - self.config.tolerance { stumble += 1; } else { stumble = 0; }
             if loss < best_loss {
                 best_weights = self.weights.clone();
                 best_loss = loss;
             }
 
-            if self.verbose {
+            if self.config.verbose {
                 println!("-- Epoch {}, Norm: {}, Bias: {}, T: {}, Average loss: {:.06}",
                          e, norm(&self.weights[1..]), self.weights[0], t, loss);
             }
 
-            if stumble > self.stumble {
+            if stumble > self.config.stumble {
                 self.weights = best_weights;
-                if self.verbose { println!("Convergence after {} epochs", e); }
+                if self.config.verbose { println!("Convergence after {} epochs", e); }
                 return self;
             }
         }

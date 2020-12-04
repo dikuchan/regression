@@ -1,57 +1,21 @@
 use crate::{
-    regressor::lib::*,
     math::*,
+    regressor::{
+        config::Config,
+        regressor::Regressor,
+    },
 };
-
-use std::default::Default;
 
 /// Main parameters are the same as parameters of the `SGDRegressor` in `scikit-learn` library.
 #[derive(Clone, Debug)]
 pub struct SGD {
-    /// The maximum number of passes over the training data.
-    iterations: usize,
-    /// Constant that multiplies the regularization term.
-    alpha: f64,
-    /// The penalty (aka regularization term) to be used.
-    penalty: Penalty,
-    /// The stopping criterion.
-    /// Training will stop when `error > best_error - tolerance`.
-    tolerance: f64,
-    /// Whether or not the training data should be shuffled after each epoch.
-    shuffle: bool,
-    /// Should an important information be printed.
-    verbose: bool,
-    /// Number of iterations with no improvement to wait before early stopping.
-    stumble: usize,
-    /// The initial learning rate.
-    eta: f64,
+    config: Config,
     weights: Vector,
 }
 
 impl SGD {
-    builder_field!(iterations, usize);
-    builder_field!(alpha, f64);
-    builder_field!(penalty, Penalty);
-    builder_field!(tolerance, f64);
-    builder_field!(shuffle, bool);
-    builder_field!(verbose, bool);
-    builder_field!(stumble, usize);
-    builder_field!(eta, f64);
-}
-
-impl Default for SGD {
-    fn default() -> Self {
-        Self {
-            iterations: 1000,
-            alpha: 1e-4,
-            penalty: Penalty::L2,
-            tolerance: 1e-3,
-            shuffle: true,
-            verbose: false,
-            stumble: 6,
-            eta: 1e-2,
-            weights: Vec::new(),
-        }
+    pub(crate) fn new(config: Config) -> Self {
+        SGD { config, weights: Vector::new() }
     }
 }
 
@@ -86,21 +50,21 @@ impl Regressor for SGD {
         let mut best_loss = f64::MAX;
         let mut best_weights = vec![0f64; 1 + X.cols()];
 
-        for e in 0..self.iterations {
+        for e in 0..self.config.iterations {
             // It is essential to reshuffle data.
             // Randomly permute all rows.
-            if self.shuffle { shuffle(&mut X, &mut y); }
+            if self.config.shuffle { shuffle(&mut X, &mut y); }
 
             let mut loss = 0f64;
             for i in 0..X.rows() {
                 t += 1;
                 // Scale learning rate.
                 // Default method in `sklearn`.
-                let eta = self.eta / (t as f64).powf(0.25);
+                let eta = self.config.eta / (t as f64).powf(0.25);
                 // Precompute the part of derivative that doesn't depend on `X`.
                 let delta = self.weights[0] + dot(&self.weights[1..], &X[i]) - y[i];
                 for j in 0..1 + X.cols() {
-                    let penalty = self.penalty.compute(self.alpha, self.weights[j]);
+                    let penalty = self.config.penalty.compute(self.config.alpha, self.weights[j]);
                     let derivative = delta * if j == 0 { 1f64 } else { X[[i, j - 1]] } + penalty;
                     self.weights[j] -= eta * derivative;
                 }
@@ -109,20 +73,20 @@ impl Regressor for SGD {
 
             // Compute average loss.
             loss = loss / X.rows() as f64;
-            if loss > best_loss - self.tolerance { stumble += 1; } else { stumble = 0; }
+            if loss > best_loss - self.config.tolerance { stumble += 1; } else { stumble = 0; }
             if loss < best_loss {
                 best_weights = self.weights.clone();
                 best_loss = loss;
             }
 
-            if self.verbose {
+            if self.config.verbose {
                 println!("-- Epoch {}, Norm: {}, Bias: {}, T: {}, Average loss: {:.06}",
                          e, norm(&self.weights[1..]), self.weights[0], t, loss);
             }
 
-            if stumble > self.stumble {
+            if stumble > self.config.stumble {
                 self.weights = best_weights;
-                if self.verbose { println!("Convergence after {} epochs", e); }
+                if self.config.verbose { println!("Convergence after {} epochs", e); }
                 return self;
             }
         }

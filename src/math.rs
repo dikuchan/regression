@@ -1,17 +1,16 @@
 extern crate csv;
 
 use std::{
-    path::Path,
     error::Error,
     fs::File,
-    ops::{Index, IndexMut},
+    ops::{Index, IndexMut, Range},
+    path::Path,
 };
 
 use rand::{
     Rng,
     seq::SliceRandom,
 };
-use std::ops::Range;
 
 /// Permute in-place all matrix rows with respect to target vector.
 pub fn shuffle(X: &mut Matrix, y: &mut Vector) {
@@ -46,7 +45,8 @@ pub fn norm(x: &[f64]) -> f64 {
 }
 
 /// Generate `f`-dependent train matrix and target with random noise.
-pub fn gen_dataset<F>(n: usize, range: (f64, f64), noise: f64, f: F) -> (Matrix, Vector)
+pub fn gen_dataset<F>(n: usize, range: (f64, f64), noise: f64, f: F)
+                      -> (Matrix, Vector)
     where F: Fn(f64) -> f64,
 {
     let mut X = Matrix::new(n, 1);

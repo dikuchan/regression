@@ -1,11 +1,8 @@
 use crate::{
     math::*,
     regressor::{
-        lib::Regressor,
-        sgd::SGD,
-        adagrad::AdaGrad,
-        rmsprop::RMSProp,
-        adam::Adam,
+        config::Config,
+        regressor::Regressor,
     },
 };
 
@@ -13,7 +10,8 @@ use crate::{
 fn test_sgd() {
     let (X, y) = gen_dataset(1000, (0f64, 20f64), 1e-1,
                              |x| { 10f64 + 2f64 * x });
-    let sgd = SGD::default()
+    let sgd = Config::default()
+        .to_SGD()
         .fit(X.clone(), y.clone());
 
     println!("SGD R2 Test Score: {}", sgd.score(&X, &y));
@@ -25,8 +23,9 @@ fn test_sgd() {
 fn test_adagrad() {
     let (X, y) = gen_dataset(1000, (0f64, 40f64), 1e-1,
                              |x| { 10f64 + 4f64 * x });
-    let ag = AdaGrad::default()
+    let ag = Config::default()
         .eta(1e-1)
+        .to_AdaGrad()
         .fit(X.clone(), y.clone());
 
     println!("Adagrad R2 Test Score: {}", ag.score(&X, &y));
@@ -38,7 +37,8 @@ fn test_adagrad() {
 fn test_rmsprop() {
     let (X, y) = gen_dataset(1000, (30f64, 60f64), 1e-1,
                              |x| { -10f64 + 3f64 * x });
-    let rmsp = RMSProp::default()
+    let rmsp = Config::default()
+        .to_RMSProp()
         .fit(X.clone(), y.clone());
 
     println!("RMSProp R2 Test Score: {}", rmsp.score(&X, &y));
@@ -50,7 +50,8 @@ fn test_rmsprop() {
 fn test_adam() {
     let (X, y) = gen_dataset(1000, (2f64, 16f64), 1e-1,
                              |x| { -2f64 + 10f64 * x });
-    let adam = Adam::default()
+    let adam = Config::default()
+        .to_Adam()
         .fit(X.clone(), y.clone());
 
     println!("Adam R2 Test Score: {}", adam.score(&X, &y));

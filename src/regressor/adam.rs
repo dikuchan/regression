@@ -6,18 +6,7 @@ use crate::{
     },
 };
 
-/// For the complete documentation on regressors, see `SGD`.
-#[derive(Clone, Debug)]
-pub struct Adam {
-    config: Config,
-    weights: Vector,
-}
-
-impl Adam {
-    pub(crate) fn new(config: Config) -> Self {
-        Adam { config, weights: Vector::new() }
-    }
-}
+regressor!(Adam);
 
 impl Regressor for Adam {
     /// Fit a linear model with Adaptive Moment Estimation.
@@ -28,14 +17,13 @@ impl Regressor for Adam {
     /// * `y`: Target vector of matrix `X`. One column with precisely `N` rows.
     fn fit(mut self, mut X: Matrix, mut y: Vector) -> Self {
         self.weights = vec![0f64; 1 + X.cols()];
+        self.best_weights = vec![0f64; 1 + X.cols()];
         // Precompute rate of changes of weights.
         let mut M = vec![0f64; 1 + X.cols()];
         let mut V = vec![0f64; 1 + X.cols()];
 
         let mut t = 0usize;
         let mut stumble = 0usize;
-        let mut best_loss = f64::MAX;
-        let mut best_weights = vec![0f64; 1 + X.cols()];
 
         for e in 1..self.config.iterations {
             if self.config.shuffle { shuffle(&mut X, &mut y); }
@@ -59,10 +47,10 @@ impl Regressor for Adam {
             }
 
             loss = loss / X.rows() as f64;
-            if loss > best_loss - self.config.tolerance { stumble += 1; } else { stumble = 0; }
-            if loss < best_loss {
-                best_weights = self.weights.clone();
-                best_loss = loss;
+            if loss > self.best_loss - self.config.tolerance { stumble += 1; } else { stumble = 0; }
+            if loss < self.best_loss {
+                self.best_weights = self.weights.clone();
+                self.best_loss = loss;
             }
 
             if self.config.verbose {
@@ -71,7 +59,6 @@ impl Regressor for Adam {
             }
 
             if stumble > self.config.stumble {
-                self.weights = best_weights;
                 if self.config.verbose { println!("Convergence after {} epochs", e); }
                 return self;
             }

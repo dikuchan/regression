@@ -6,18 +6,7 @@ use crate::{
     },
 };
 
-/// For the complete documentation on regressors, see `SGD`.
-#[derive(Clone, Debug)]
-pub struct RMSProp {
-    config: Config,
-    weights: Vector,
-}
-
-impl RMSProp {
-    pub(crate) fn new(config: Config) -> Self {
-        RMSProp { config, weights: Vector::new() }
-    }
-}
+regressor!(RMSProp);
 
 impl Regressor for RMSProp {
     /// Fit a linear model with AdaGrad with root mean square propagation.
@@ -28,13 +17,12 @@ impl Regressor for RMSProp {
     /// * `y`: Target vector of matrix `X`. One column with precisely `N` rows.
     fn fit(mut self, mut X: Matrix, mut y: Vector) -> Self {
         self.weights = vec![0f64; 1 + X.cols()];
+        self.best_weights = vec![0f64; 1 + X.cols()];
         // For each weight store values to further adjust them.
         let mut E = vec![0f64; 1 + X.cols()];
 
         let mut t = 0usize;
         let mut stumble = 0usize;
-        let mut best_loss = f64::MAX;
-        let mut best_weights = vec![0f64; 1 + X.cols()];
 
         for e in 0..self.config.iterations {
             if self.config.shuffle { shuffle(&mut X, &mut y); }
@@ -55,10 +43,10 @@ impl Regressor for RMSProp {
             }
 
             loss = loss / X.rows() as f64;
-            if loss > best_loss - self.config.tolerance { stumble += 1; } else { stumble = 0; }
-            if loss < best_loss {
-                best_weights = self.weights.clone();
-                best_loss = loss;
+            if loss > self.best_loss - self.config.tolerance { stumble += 1; } else { stumble = 0; }
+            if loss < self.best_loss {
+                self.best_weights = self.weights.clone();
+                self.best_loss = loss;
             }
 
             if self.config.verbose {
@@ -67,7 +55,6 @@ impl Regressor for RMSProp {
             }
 
             if stumble > self.config.stumble {
-                self.weights = best_weights;
                 if self.config.verbose { println!("Convergence after {} epochs", e); }
                 return self;
             }

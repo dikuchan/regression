@@ -6,18 +6,7 @@ use crate::{
     },
 };
 
-/// Main parameters are the same as parameters of the `SGDRegressor` in `scikit-learn` library.
-#[derive(Clone, Debug)]
-pub struct SGD {
-    config: Config,
-    weights: Vector,
-}
-
-impl SGD {
-    pub(crate) fn new(config: Config) -> Self {
-        SGD { config, weights: Vector::new() }
-    }
-}
+regressor!(SGD);
 
 impl Regressor for SGD {
     /// Fit a linear model with Stochastic Gradient Descent.
@@ -42,13 +31,12 @@ impl Regressor for SGD {
     fn fit(mut self, mut X: Matrix, mut y: Vector) -> Self {
         // Squared loss is convex function, so start with zeroes.
         self.weights = vec![0f64; 1 + X.cols()];
+        self.best_weights = vec![0f64; 1 + X.cols()];
 
         // Scaling factor for eta.
         let mut t = 0usize;
         // Number of times loss didn't improve.
         let mut stumble = 0usize;
-        let mut best_loss = f64::MAX;
-        let mut best_weights = vec![0f64; 1 + X.cols()];
 
         for e in 0..self.config.iterations {
             // It is essential to reshuffle data.
@@ -73,10 +61,10 @@ impl Regressor for SGD {
 
             // Compute average loss.
             loss = loss / X.rows() as f64;
-            if loss > best_loss - self.config.tolerance { stumble += 1; } else { stumble = 0; }
-            if loss < best_loss {
-                best_weights = self.weights.clone();
-                best_loss = loss;
+            if loss > self.best_loss - self.config.tolerance { stumble += 1; } else { stumble = 0; }
+            if loss < self.best_loss {
+                self.best_weights = self.weights.clone();
+                self.best_loss = loss;
             }
 
             if self.config.verbose {
@@ -85,7 +73,6 @@ impl Regressor for SGD {
             }
 
             if stumble > self.config.stumble {
-                self.weights = best_weights;
                 if self.config.verbose { println!("Convergence after {} epochs", e); }
                 return self;
             }

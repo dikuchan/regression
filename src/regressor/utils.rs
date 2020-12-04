@@ -6,16 +6,40 @@ use crate::{
     },
 };
 
+/// Regressors do have a common interface.
+macro_rules! regressor {
+    ($name:ident) => {
+    #[derive(Clone, Debug)]
+    pub struct $name {
+        config: Config,
+        weights: Vector,
+        best_loss: f64,
+        best_weights: Vector,
+    }
+
+    impl $name {
+        pub(crate) fn new(config: Config) -> Self {
+            $name {
+                config,
+                weights: Vector::new(),
+                best_loss: f64::MAX,
+                best_weights: Vector::new(),
+            }
+        }
+    }
+    };
+}
+
+macro_rules! builder_field {
+    ($field:ident, $field_type:ty) => {
+        pub fn $field(mut self, $field: $field_type) -> Self {
+            self.$field = $field;
+            self
+        }
+    };
+}
+
 /// Conveniently define regularization term that is added to the MSE formula.
-///
-/// # None
-/// MSE is unchanged: `1/|y| Σ (y - y·)^2`.
-///
-/// # L1
-/// Term added: `-Σ |w|`.
-///
-/// # L2
-/// Term added: `-Σ w^2`.
 #[derive(Copy, Clone, Debug)]
 pub enum Penalty {
     L1,

@@ -8,15 +8,6 @@ use crate::{
     }
 };
 
-macro_rules! builder_field {
-    ($field:ident, $field_type:ty) => {
-        pub fn $field(mut self, $field: $field_type) -> Self {
-            self.$field = $field;
-            self
-        }
-    };
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct Config {
     /// The maximum number of passes over the training data.

@@ -16,7 +16,6 @@ pub struct AdaGrad {
     eta: f64,
     // A small value to avoid division by zero.
     epsilon: f64,
-    intercept: f64,
     weights: Vector,
 }
 
@@ -40,7 +39,6 @@ impl Default for AdaGrad {
             shuffle: true,
             eta: 1e-2,
             epsilon: 1e-8,
-            intercept: 0f64,
             weights: Vec::new(),
         }
     }
@@ -54,31 +52,28 @@ impl Regressor for AdaGrad {
     /// * `X`: Train matrix filled with `N` observations and `P` features.
     /// * `y`: Target vector of matrix `X`. One column with precisely `N` rows.
     fn fit(mut self, mut X: Matrix, mut y: Vector) -> Self {
-        self.weights = vec![0f64; X.cols()];
+        self.weights = vec![0f64; 1 + X.cols()];
         // For each weight store variance to adjust them.
-        let mut G = vec![0f64; X.cols() + 1];
+        let mut G = vec![0f64; 1 + X.cols()];
 
         let mut t = 0usize;
         let mut stumble = 0usize;
         let mut best_loss = f64::MAX;
+        let mut best_weights = vec![0f64; 1 + X.cols()];
 
         for e in 0..self.iterations {
-            let mut loss = 0f64;
             if self.shuffle { shuffle(&mut X, &mut y) };
+
+            let mut loss = 0f64;
             for i in 0..X.rows() {
                 t += 1;
-                let delta = self.intercept + dot(&self.weights, &X[i]) - y[i];
-                {
-                    G[0] += delta.powi(2);
-                    let eta = self.eta / (G[0] + self.epsilon).sqrt();
-                    self.intercept -= eta * delta;
-                }
-                for j in 0..X.cols() {
-                    let derivative = delta * X[[i, j]];
+                let delta = self.weights[0] + dot(&self.weights[1..], &X[i]) - y[i];
+                for j in 0..1 + X.cols() {
+                    let derivative = delta * if j == 0 { 1f64 } else { X[[i, j - 1]] };
                     // Accumulate past gradient variance.
-                    G[j + 1] += derivative.powi(2);
-                    // Scale eta value.
-                    let eta = self.eta / (G[j + 1] + self.epsilon).sqrt();
+                    G[j] += derivative.powi(2);
+                    // Scale eta.
+                    let eta = self.eta / (G[j] + self.epsilon).sqrt();
                     // Adjust weights.
                     self.weights[j] -= eta * derivative;
                 }
@@ -86,14 +81,18 @@ impl Regressor for AdaGrad {
 
             loss = loss / X.rows() as f64;
             if loss > best_loss - self.tolerance { stumble += 1; } else { stumble = 0; }
-            if loss < best_loss { best_loss = loss; }
+            if loss < best_loss {
+                best_weights = self.weights.clone();
+                best_loss = loss;
+            }
 
             if self.verbose {
                 println!("-- Epoch {}, Norm: {}, Bias: {}, T: {}, Average loss: {:.06}",
-                         e, norm(&self.weights), self.intercept, t, loss);
+                         e, norm(&self.weights[1..]), self.weights[0], t, loss);
             }
 
             if stumble > self.stumble {
+                self.weights = best_weights;
                 if self.verbose { println!("Convergence after {} epochs", e); }
                 return self;
             }
@@ -104,9 +103,5 @@ impl Regressor for AdaGrad {
 
     fn weights(&self) -> &Vector {
         &self.weights
-    }
-
-    fn intercept(&self) -> f64 {
-        self.intercept
     }
 }

@@ -1,8 +1,14 @@
+# Data
 /data/test
 /data/train
 /data/raw
 
+# Jupyter Notebook
 model.ipynb
+/.ipynb_checkpoints
 
+# IDE Settings
 /.idea
+
+# Build
 /target

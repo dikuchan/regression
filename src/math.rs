@@ -46,7 +46,7 @@ pub fn norm(x: &[f64]) -> f64 {
 }
 
 /// Generate `f`-dependent train matrix and target with random noise.
-pub fn generate<F>(n: usize, range: (f64, f64), f: F) -> (Matrix, Vector)
+pub fn gen_dataset<F>(n: usize, range: (f64, f64), noise: f64, f: F) -> (Matrix, Vector)
     where F: Fn(f64) -> f64,
 {
     let mut X = Matrix::new(n, 1);
@@ -57,7 +57,7 @@ pub fn generate<F>(n: usize, range: (f64, f64), f: F) -> (Matrix, Vector)
     let delta = (range.1 - range.0) / n as f64;
     for i in 0..n {
         y[i] = f(x);
-        X[[i, 0]] = x + 1e-2 * rng.gen_range(-range.1, range.1);
+        X[[i, 0]] = x + noise * rng.gen_range(-range.1, range.1);
         x += delta;
     }
 

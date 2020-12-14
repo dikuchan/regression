@@ -6,7 +6,24 @@ use crate::{
     },
 };
 
-regressor!(RMSProp);
+#[derive(Clone, Debug)]
+pub struct RMSProp {
+    config: Config,
+    weights: Vector,
+    best_loss: f64,
+    best_weights: Vector,
+}
+
+impl RMSProp {
+    pub(crate) fn new(config: Config) -> Self {
+        RMSProp {
+            config,
+            weights: Vector::new(),
+            best_loss: f64::MAX,
+            best_weights: Vector::new(),
+        }
+    }
+}
 
 impl Regressor for RMSProp {
     /// Fit a linear model with AdaGrad with root mean square propagation.

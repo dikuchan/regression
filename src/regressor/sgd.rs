@@ -6,7 +6,24 @@ use crate::{
     },
 };
 
-regressor!(SGD);
+#[derive(Clone, Debug)]
+pub struct SGD {
+    config: Config,
+    weights: Vector,
+    best_loss: f64,
+    best_weights: Vector,
+}
+
+impl SGD {
+    pub(crate) fn new(config: Config) -> Self {
+        SGD {
+            config,
+            weights: Vector::new(),
+            best_loss: f64::MAX,
+            best_weights: Vector::new(),
+        }
+    }
+}
 
 impl Regressor for SGD {
     /// Fit a linear model with Stochastic Gradient Descent.

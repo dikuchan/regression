@@ -6,7 +6,24 @@ use crate::{
     },
 };
 
-regressor!(AdaGrad);
+#[derive(Clone, Debug)]
+pub struct AdaGrad {
+    config: Config,
+    weights: Vector,
+    best_loss: f64,
+    best_weights: Vector,
+}
+
+impl AdaGrad {
+    pub(crate) fn new(config: Config) -> Self {
+        AdaGrad {
+            config,
+            weights: Vector::new(),
+            best_loss: f64::MAX,
+            best_weights: Vector::new(),
+        }
+    }
+}
 
 impl Regressor for AdaGrad {
     /// Fit a linear model with Adaptive Gradient Descent.

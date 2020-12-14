@@ -6,7 +6,24 @@ use crate::{
     },
 };
 
-regressor!(Adam);
+#[derive(Clone, Debug)]
+pub struct Adam {
+    config: Config,
+    weights: Vector,
+    best_loss: f64,
+    best_weights: Vector,
+}
+
+impl Adam {
+    pub(crate) fn new(config: Config) -> Self {
+        Adam {
+            config,
+            weights: Vector::new(),
+            best_loss: f64::MAX,
+            best_weights: Vector::new(),
+        }
+    }
+}
 
 impl Regressor for Adam {
     /// Fit a linear model with Adaptive Moment Estimation.

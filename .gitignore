@@ -4,7 +4,6 @@
 /data/raw
 
 # Jupyter Notebook
-model.ipynb
 /.ipynb_checkpoints
 
 # IDE Settings

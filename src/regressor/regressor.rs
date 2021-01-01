@@ -7,7 +7,7 @@ use crate::math::{dot, Matrix, Vector};
 /// Other methods have standard implementation and are auto-inherited.
 pub trait Regressor {
     /// Assess the best weights of linear regression on the provided dataset.
-    fn fit(self, X: Matrix, y: Vector) -> Self;
+    fn fit(self, X: Matrix, y: Vector) -> Self where Self: Sized;
 
     /// Return the weights of a fitted regressor.
     /// This method should be implemented in order to automatically inherit `predict` method.

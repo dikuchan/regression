@@ -57,6 +57,7 @@ impl Regressor for AdaGrad {
                     // Adjust weights.
                     self.weights[j] -= eta * derivative;
                 }
+                loss += delta.powi(2) / 2f64;
             }
 
             loss = loss / X.rows() as f64;

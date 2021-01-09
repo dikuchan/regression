@@ -1,14 +1,5 @@
 #![allow(non_snake_case)]
 
-use std::{
-    ffi::{CStr, OsStr},
-    os::{
-        raw::c_char,
-        unix::ffi::OsStrExt,
-    },
-    path::Path,
-};
-
 use crate::{
     math::{FromCSV, Matrix, Vector},
     regressor::{
@@ -22,16 +13,10 @@ pub mod regressor;
 pub mod math;
 
 #[no_mangle]
-pub extern "C" fn fit(method: u64, X: *const c_char, y: *const c_char, iterations: u64,
-                      alpha: f64, penalty: u64, tolerance: f64, shuffle: u64,
-                      verbose: u64, stumble: u64, eta: f64, score: u64)
-                      -> *const f64 {
-    // I'm genuinely sorry for the mess.
-    let X: &Path = unsafe { OsStr::from_bytes(CStr::from_ptr(X).to_bytes()).as_ref() };
-    let y: &Path = unsafe { OsStr::from_bytes(CStr::from_ptr(y).to_bytes()).as_ref() };
-
-    let X = Matrix::read(X).unwrap();
-    let y = Vector::read(y).unwrap();
+pub extern "C" fn fit(buffer: *mut f64, n: usize, method: u64, iterations: u64, alpha: f64,
+                      penalty: u64, tolerance: f64, shuffle: u64, verbose: u64, stumble: u64, eta: f64) {
+    let X = Matrix::read("./data/train/X.csv").unwrap();
+    let y = Vector::read("./data/train/y.csv").unwrap();
 
     let config = Config::default()
         .iterations(iterations as usize)
@@ -55,14 +40,15 @@ pub extern "C" fn fit(method: u64, X: *const c_char, y: *const c_char, iteration
         _ => unimplemented!()
     };
 
-    if score != 0 {
-        let X = Matrix::read("./data/test/X.csv").unwrap();
-        let y = Vector::read("./data/test/y.csv").unwrap();
+    let X = Matrix::read("./data/test/X.csv").unwrap();
+    let y = Vector::read("./data/test/y.csv").unwrap();
 
-        println!("MSE: {:.05}", regressor.mse(&X, &y));
-        println!("R2 Score: {:.05}", regressor.score(&X, &y));
-        println!("Weights: {:.05?}", regressor.weights());
+    println!("MSE: {:.05}", regressor.mse(&X, &y));
+    println!("R2 Score: {:.05}", regressor.score(&X, &y));
+    println!("Weights: {:.05?}", regressor.weights());
+
+    unsafe {
+        std::slice::from_raw_parts_mut(buffer, n)
+            .copy_from_slice(&regressor.weights())
     }
-
-    regressor.weights().as_ptr()
 }

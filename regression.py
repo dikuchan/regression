@@ -34,23 +34,23 @@ class Regressor:
         self.stumble = stumble
         self.eta = eta
 
-        ffi = FFI()
-        ffi.cdef("""
-            double* fit(uint64_t method, const char* X, const char* y, uint64_t iterations, 
-                        double alpha, uint64_t penalty, double tolerance, uint64_t shuffle, 
-                        uint64_t verbose, uint64_t stumble, double eta, uint64_t score);
-        """)
-        self.C = ffi.dlopen('target/release/libregression.so')
-
-    def fit(self, X: str = './data/train/X.csv', y: str = './data/train/y.csv', score: bool = True):
+    def fit(self, n: int):
         """
         Fit regressor.
-        :param X: Path to train data.
-        :param y: Path to train target variable.
-        :param score: Whether the score should be assessed.
+        :param n: Number of features.
         """
-        return self.C.fit(self.method, X.encode(), y.encode(), self.iterations, self.alpha, self.penalty,
-                          self.tolerance, self.shuffle, self.verbose, self.stumble, self.eta, int(score))
+        ffi = FFI()
+        ffi.cdef("""
+            void fit(double * buffer, uint64_t n, uint64_t method, uint64_t iterations, double alpha, 
+                     uint64_t penalty, double tolerance, uint64_t shuffle, uint64_t verbose, uint64_t stumble, double eta);
+        """)
+        C = ffi.dlopen('target/release/libregression.so')
+        buffer = ffi.new(f'double [{n}]')
+        C.fit(buffer, n, self.method, self.iterations, self.alpha, self.penalty,
+              self.tolerance, self.shuffle, self.verbose, self.stumble, self.eta)
+        weights = ffi.unpack(buffer, n)
+
+        return weights
 
 
 def onehot(X):
@@ -179,4 +179,4 @@ if __name__ == '__main__':
 
     # Find optimum.
     regression = Regressor(method='sgd', alpha=2e-6)
-    regression.fit()
+    regression.fit(n=15)

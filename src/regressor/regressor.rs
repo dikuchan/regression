@@ -34,15 +34,15 @@ pub trait Regressor {
     /// Assess the efficiency of a model with R-squared score.
     fn score(&self, X: &Matrix, y: &Vector) -> f64 {
         let predictions = &self.predict(X);
-        let ssres = predictions.iter().zip(y.iter())
+        let residual = predictions.iter().zip(y.iter())
             .map(|(yh, y)| (y - yh).powi(2))
             .sum::<f64>();
         let mean = y.iter().sum::<f64>() / y.len() as f64;
-        let sstot = y.iter()
+        let total = y.iter()
             .map(|y| (y - mean).powi(2))
             .sum::<f64>();
 
-        1f64 - (ssres / sstot)
+        1f64 - (residual / total)
     }
 
     /// Calculate mean squared deviation of an estimator.

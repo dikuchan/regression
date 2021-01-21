@@ -64,6 +64,13 @@ pub fn gen_dataset<F>(n: usize, range: (f64, f64), noise: f64, f: F)
     (X, y)
 }
 
+pub fn slice(X: &Matrix, y: &Vector, idx: &[usize]) -> (Matrix, Vector) {
+    let X = X.slice(idx);
+    let y = idx.iter().map(|&i| y[i]).collect();
+
+    (X, y)
+}
+
 pub trait FromCSV {
     /// Read from `.csv` file.
     /// Trait is used due to type-aliasing limitations with `Vec<f64>`.
@@ -105,20 +112,22 @@ impl Matrix {
         }
     }
 
-    pub fn slice(&self, i: usize) -> (Self, Self) {
-        let l = Matrix {
-            rows: i - 1,
-            cols: self.cols,
-            data: self[0..i - 1].to_vec(),
-        };
+    pub fn slice(&self, idx: &[usize]) -> Self {
+        let mut data = Vec::with_capacity(idx.len() * self.cols);
+        unsafe {
+            data.set_len(idx.len() * self.cols);
+        }
+        for (&i, k) in idx.iter().zip(0..self.rows) {
+            for j in 0..self.cols {
+                data[k * self.cols + j] = self[[i, j]];
+            }
+        }
 
-        let r = Matrix {
-            rows: self.rows - i,
+        Matrix {
+            rows: idx.len(),
             cols: self.cols,
-            data: self[i..self.rows].to_vec(),
-        };
-
-        (l, r)
+            data,
+        }
     }
 
     pub fn rows(&self) -> usize { self.rows }

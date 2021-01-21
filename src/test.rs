@@ -3,6 +3,7 @@ use crate::{
     regressor::{
         config::Config,
         regressor::Regressor,
+        utils::KFold,
     },
 };
 
@@ -57,4 +58,22 @@ fn test_adam() {
     println!("Adam R2 Test Score: {}", adam.score(&X, &y));
 
     assert!(adam.score(&X, &y) > 0.9);
+}
+
+#[test]
+fn test_k_fold() {
+    let X = Matrix::new(1000, 2);
+    let y = vec![0f64; 1000];
+    let n = 5;
+    let folds = KFold::new(n, &X, &y);
+
+    for (train, test) in folds {
+        let (X, y) = train;
+        assert_eq!(X.rows(), 1000 * (n - 1) / n);
+        assert_eq!(X.rows(), y.len());
+
+        let (X, y) = test;
+        assert_eq!(X.rows(), 1000 / n);
+        assert_eq!(X.rows(), y.len());
+    }
 }

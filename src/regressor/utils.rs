@@ -109,6 +109,7 @@ impl<'a> Iterator for KFold<'a> {
 pub fn assess_alpha(X: &Matrix, y: &Vector, k: usize, grid: &Vec<f64>, penalty: Penalty) -> f64 {
     let mut alpha = 0f64;
     let mut best_error = f64::MAX;
+    let mut best_iteration = 0usize;
 
     for (i, &p) in grid.iter().enumerate() {
         let mut error = 0f64;
@@ -129,10 +130,12 @@ pub fn assess_alpha(X: &Matrix, y: &Vector, k: usize, grid: &Vec<f64>, penalty: 
         error = error / k as f64;
         if error < best_error {
             best_error = error;
+            best_iteration = i;
             alpha = p;
         }
 
         println!("-- Iteration {}, Error: {}, Alpha: {}", i + 1, error, p);
+        println!("-- Best error: {} on iteration {}, Alpha: {}", best_error, best_iteration, alpha);
     }
 
     alpha

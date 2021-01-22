@@ -54,22 +54,22 @@ class Regressor:
 
         return weights
 
-    @staticmethod
-    def assess_alpha(self, k: int, left: float, right: float, size: int, penalty: str) -> float:
-        ffi = FFI()
-        ffi.cdef("""
-            double assess_alpha(uint64_t k, double left, double right, uint64_t size, uint64_t penalty);
-        """)
-        C = ffi.dlopen('target/release/libregression.so')
-        if not penalty:
-            penalty = 0
-        elif penalty == 'l1':
-            penalty = 1
-        else:
-            penalty = 2
-        alpha = C.assess_alpha(k, left, right, size, penalty)
 
-        return alpha
+def assess_alpha(k: int, left: float, right: float, size: int, penalty: str) -> float:
+    ffi = FFI()
+    ffi.cdef("""
+            double assess_alpha(uint64_t k, double left, double right, uint64_t size, uint64_t penalty);
+    """)
+    C = ffi.dlopen('target/release/libregression.so')
+    if not penalty:
+        penalty = 0
+    elif penalty == 'l1':
+        penalty = 1
+    else:
+        penalty = 2
+    alpha = C.assess_alpha(k, left, right, size, penalty)
+
+    return alpha
 
 
 def onehot(X):

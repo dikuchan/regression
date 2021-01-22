@@ -1,14 +1,16 @@
 import argparse
 import csv
 from collections import defaultdict
+from math import sqrt
 
 from cffi import FFI
-from math import sqrt
 
 
 class Regressor:
-    def __init__(self, method: str = 'sgd', iterations: int = 1000, alpha: float = 1e-4, penalty: str = 'l2',
-                 tolerance: float = 1e-3, shuffle: bool = True, verbose: bool = True, stumble: int = 12,
+    def __init__(self, method: str = 'sgd', iterations: int = 1000, alpha: float = 1e-4,
+                 penalty: str = 'l2',
+                 tolerance: float = 1e-3, shuffle: bool = True, verbose: bool = True,
+                 stumble: int = 12,
                  eta: float = 1e-2):
         if method == 'sgd':
             self.method = 1
@@ -34,7 +36,7 @@ class Regressor:
         self.stumble = stumble
         self.eta = eta
 
-    def fit(self, n: int):
+    def fit(self, n: int) -> [float]:
         """
         Fit regressor.
         :param n: Number of features.
@@ -51,6 +53,23 @@ class Regressor:
         weights = ffi.unpack(buffer, n)
 
         return weights
+
+    @staticmethod
+    def assess_alpha(self, k: int, left: float, right: float, size: int, penalty: str) -> float:
+        ffi = FFI()
+        ffi.cdef("""
+            double assess_alpha(uint64_t k, double left, double right, uint64_t size, uint64_t penalty);
+        """)
+        C = ffi.dlopen('target/release/libregression.so')
+        if not penalty:
+            penalty = 0
+        elif penalty == 'l1':
+            penalty = 1
+        else:
+            penalty = 2
+        alpha = C.assess_alpha(k, left, right, size, penalty)
+
+        return alpha
 
 
 def onehot(X):
@@ -143,13 +162,16 @@ def write_csv(filepath, X):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Preprocess data with airline delays.')
 
-    parser.add_argument('filename', metavar='FILE', nargs='?', default='data.csv', help='CSV file with data')
+    parser.add_argument('filename', metavar='FILE', nargs='?', default='data.csv',
+                        help='CSV file with data')
     parser.add_argument('--target', nargs='?', required=True, help='Target variable to predict')
     parser.add_argument('--drop', nargs='+', help='Columns to drop from data')
     parser.add_argument('--scale', nargs='?', choices=['standard', 'minmax'], default='minmax',
                         help='Method of scaling of numerical data')
-    parser.add_argument('--split', nargs='?', type=float, default=0.2, help='Test to train split in %%')
-    parser.add_argument('--ohe', action='store_true', help='Apply one-hot encoding to string columns, drop otherwise')
+    parser.add_argument('--split', nargs='?', type=float, default=0.2,
+                        help='Test to train split in %%')
+    parser.add_argument('--ohe', action='store_true',
+                        help='Apply one-hot encoding to string columns, drop otherwise')
     parser.add_argument('--outliers', nargs='?', type=int, default=3,
                         help='Remove observations further than n standard derivations')
     parser.add_argument('--method', choices=['sgd', 'adagrad', 'rmsprop', 'adam'], default='sgd',

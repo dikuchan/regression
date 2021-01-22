@@ -5,7 +5,7 @@ use crate::{
     regressor::{
         config::Config,
         regressor::Regressor,
-        utils::Penalty,
+        utils::{assess_alpha as assess, Penalty},
     },
 };
 
@@ -51,4 +51,21 @@ pub extern "C" fn fit(buffer: *mut f64, n: usize, method: u64, iterations: u64, 
         std::slice::from_raw_parts_mut(buffer, n)
             .copy_from_slice(&regressor.weights())
     }
+}
+
+#[no_mangle]
+pub extern "C" fn assess_alpha(k: u64, left: f64, right: f64, size: u64, penalty: u64) -> f64 {
+    let X = Matrix::read("./data/train/X.csv").unwrap();
+    let y = Vector::read("./data/train/y.csv").unwrap();
+    let grid = (0..size)
+        .map(|p| left + p as f64 * (right - left) / size as f64)
+        .collect::<Vector>();
+    let penalty = match penalty {
+        0 => Penalty::None,
+        1 => Penalty::L1,
+        2 => Penalty::L2,
+        _ => unimplemented!()
+    };
+
+    assess(&X, &y, k as usize, &grid, penalty)
 }
